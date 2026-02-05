@@ -1,9 +1,3 @@
 h5py
 numpy
-pandas
-matplotlib
-cmake
-scipy
-scikit-learn
-ffmpeg
 keypoint-moseq
