@@ -1,2 +1,4 @@
-# Keypoint-MoSeq
-TFM Neuro
+# Exporing Keypoint-MoSeq
+This repository contains exploratory code developed for my Neuroscience Master’s Thesis “Unsupervised classification of social behaviors in a mouse model of Alzheimer’s disease”. The main purpose of this project is to test and evaluate the applicability of keypoint-MoSeq for unsupervised behavioral segmentation using keypoint-based pose tracking data in mice. The repository serves as a sandbox for experimenting with the full pipeline, from pose preprocessing to the extraction of discrete behavioral motifs, without relying on predefined behavioral labels.
+
+Keypoint-MoSeq is an unsupervised machine learning framework that extends the original Motion Sequencing (MoSeq) approach to keypoint data by jointly modeling latent pose dynamics and discrete behavioral states. In this project, the method is explored as a tool to assess whether subtle alterations in social behavior—such as those expected in mouse models of Alzheimer’s disease—can be captured through changes in behavioral syllable usage and transition structure. The code focuses on testing model configuration, parameter sensitivity (e.g., stickiness), and interpretability of the resulting behavioral segmentation rather than on producing finalized behavioral classifications.
