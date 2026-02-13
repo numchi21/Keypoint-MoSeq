@@ -1,0 +1,5 @@
+# viz (requiere ffmpeg para movies)
+    results = kpms.load_results(str(PROJECT_DIR), model_name)
+    kpms.generate_trajectory_plots(coordinates, results, str(PROJECT_DIR), model_name, **cfg)
+    kpms.generate_grid_movies(results, str(PROJECT_DIR), model_name, coordinates=coordinates, **cfg)
+    kpms.plot_similarity_dendrogram(coordinates, results, str(PROJECT_DIR), model_name, **cfg)

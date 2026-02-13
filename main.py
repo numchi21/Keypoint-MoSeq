@@ -6,6 +6,37 @@ import h5py
 from pathlib import Path
 import keypoint_moseq as kpms
 
+import re
+
+# -----------------------------
+# TRACKS MACHO
+# -----------------------------
+# --- Machos: qué track corresponde al macho en cada sesión ---
+# Track 2 (animal2) para estas sesiones; Track 1 (animal1) para el resto
+MALE_TRACK2_IDS = {
+    "50_S2", "50_S3", "51_S2", "55_S3",
+    "85_S3", "86_S2", "92_S2", "92_S3", "128_S3"
+}
+
+def extract_session_id_strict(stem: str) -> str:
+    m = re.fullmatch(r"(\d+_S[23])", stem)
+    if m is None:
+        raise ValueError(
+            f"\n❌ Nombre de archivo inválido: '{stem}'\n"
+            "Se esperaba formato exacto: <numero>_S2 o <numero>_S3"
+        )
+
+    return m.group(1)
+
+def male_track_index_from_stem_strict(stem: str) -> tuple[int, str]:
+    sid = extract_session_id_strict(stem)
+
+    if sid in MALE_TRACK2_IDS:
+        return 1, sid   # Track 2
+    else:
+        return 0, sid   # Track 1
+
+
 
 # -----------------------------
 # SE AJUSTA ESTO
@@ -75,14 +106,17 @@ def main():
     if not h5_files:
         raise FileNotFoundError(f"No encontré .h5 en {DATA_ROOT.resolve()}")
 
-    # --- cargar todo y separar por animal: cada track = recording independiente ---
+    # cargar
     coordinates_dict = {}
     confidences_dict = {}
     recording_names = []
     bodyparts_ref = None
 
+    male_track1_sessions = []
+    male_track2_sessions = []
+
     for h5_path in h5_files:
-        coords, conf, bodyparts = load_sleap_h5(h5_path)  # coords: (T,K,2,R)
+        coords, conf, bodyparts = load_sleap_h5(h5_path)
         T, K, _, R = coords.shape
 
         if bodyparts_ref is None:
@@ -95,12 +129,44 @@ def main():
                 f"Archivo: {h5_path}"
             )
 
-        # split por animal
-        for r in range(R):
-            rec = f"{h5_path.stem}__animal{r + 1}"
-            coordinates_dict[rec] = coords[:, :, :, r]  # (T,K,2)
-            confidences_dict[rec] = conf[:, :, r]  # (T,K)
-            recording_names.append(rec)
+        # --- SELECCIÓN ESTRICTA DE MACHO---
+        male_r, sid = male_track_index_from_stem_strict(h5_path.stem)
+
+        if not (0 <= male_r < R):
+            raise ValueError(
+                f"{h5_path.name}: male_r={male_r} fuera de rango para R={R}"
+            )
+
+        print(f"[MALE SELECT] {h5_path.name} → SID={sid} → Track {male_r + 1}")
+
+        if male_r == 0:
+            male_track1_sessions.append(sid)
+        else:
+            male_track2_sessions.append(sid)
+
+        rec = f"{sid}__male_track{male_r + 1}"
+        coordinates_dict[rec] = coords[:, :, :, male_r]
+        confidences_dict[rec] = conf[:, :, male_r]
+        recording_names.append(rec)
+
+    # ---- VERIFICACIÓN FINAL AUTOMÁTICA ----
+
+    detected_track2 = set(male_track2_sessions) #donde se guardan los track 2 y lo convierte en set
+
+    if detected_track2 != MALE_TRACK2_IDS:
+        raise ValueError(
+            "\n ERROR: La detección automática de Track2 NO coincide "
+            "con tu lista manual.\n"
+            f"Detectado: {sorted(detected_track2)}\n"
+            f"Esperado:  {sorted(MALE_TRACK2_IDS)}"
+        )
+
+    print("\n=== RESUMEN FINAL ===")
+    print("Macho = Track 1 en:")
+    print(sorted(male_track1_sessions))
+    print("\nMacho = Track 2 en:")
+    print(sorted(male_track2_sessions))
+    print("=====================\n")
 
     print("\n=== DEBUG SHAPES ===")
     print("n recordings:", len(recording_names))
@@ -214,12 +280,6 @@ def main():
     model, data, metadata, _ = kpms.load_checkpoint(str(PROJECT_DIR), model_name)
     results = kpms.extract_results(model, metadata, str(PROJECT_DIR), model_name)
     kpms.save_results_as_csv(results, str(PROJECT_DIR), model_name)
-
-    # viz (requiere ffmpeg para movies)
-    results = kpms.load_results(str(PROJECT_DIR), model_name)
-    kpms.generate_trajectory_plots(coordinates, results, str(PROJECT_DIR), model_name, **cfg)
-    kpms.generate_grid_movies(results, str(PROJECT_DIR), model_name, coordinates=coordinates, **cfg)
-    kpms.plot_similarity_dendrogram(coordinates, results, str(PROJECT_DIR), model_name, **cfg)
 
     print("DONE:", (PROJECT_DIR / model_name).resolve())
 
